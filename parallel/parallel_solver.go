@@ -23,30 +23,29 @@ Sudoku puzzle has one unique solution (17 clues required)
 */
 
 func SolveSubPuzzle(puzzle sudoku.Puzzle, sendSol chan<- sudoku.Puzzle) {
-	sol := sequential.Solver(puzzle, sudoku.Pos{Row: 0, Clm: 0})
-	if sol == nil {
-		return
+	if sequential.Solver(puzzle, 0, 0) {
+		sendSol <- puzzle
 	}
-	sendSol <- sol
 }
 
 func Solver(puzzle sudoku.Puzzle) sudoku.Puzzle {
 	recvSol := make(chan sudoku.Puzzle)
-	pos := &sudoku.Pos{Row: 0, Clm: 0}
-	availableDigits := []int{}
+	row := 0
+	clm := 0
+	var availableDigits map[int]struct{}
 	for i := range 9 {
 		for j := range 9 {
-			if ok, s := puzzle[i][j].IsSingleton(); !ok && len(s) > len(availableDigits) {
-				availableDigits = s
-				pos.Row = i
-				pos.Clm = j
+			if candidates := puzzle[i][j]; len(candidates) > len(availableDigits) {
+				availableDigits = candidates
+				row = i
+				clm = j
 			}
 		}
 	}
 
-	for _, d := range availableDigits {
+	for d := range availableDigits {
 		subPuzzle := puzzle.DeepCopy()
-		subPuzzle[pos.Row][pos.Clm].SetSingleton(d)
+		subPuzzle[row][clm] = map[int]struct{}{d: {}}
 		go SolveSubPuzzle(subPuzzle, recvSol)
 	}
 	sol := <-recvSol

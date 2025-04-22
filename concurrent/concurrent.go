@@ -49,14 +49,13 @@ type Hint struct {
 	Restriction
 }
 
-
 type ChannelsHandler [9][9]chan *Restriction
 
 func newChannelsHandler(puzzle sudoku.Puzzle) ChannelsHandler {
 	matrix := [9][9]chan *Restriction{}
 	for i := range 9 {
 		for j := range 9 {
-			if ok, _ := puzzle[i][j].IsSingleton(); ok {
+			if len(puzzle[i][j]) == 1 {
 				continue
 			}
 			matrix[i][j] = make(chan *Restriction, 22)
@@ -104,14 +103,17 @@ func (h ChannelsHandler) getChannels(row, clm int) (*Neighborhood, <-chan *Restr
 }
 
 func Solver(puzzle sudoku.Puzzle) sudoku.Puzzle {
+	start := time.Now()
 	done := make(chan struct{})
 	channels := newChannelsHandler(puzzle)
 	wg := &sync.WaitGroup{}
+	candidatesRemovedByClues := 0
 	for i, row := range puzzle {
 		for j, cell := range row {
 			neighborhood, recvRestriction, err := channels.getChannels(i, j)
-			if ok, s := cell.IsSingleton(); ok {
-				neighborhood.notify(&Restriction{digit: s[0], row: i, clm: j})
+			if ok, d := cell.IsSingleton(); ok {
+				candidatesRemovedByClues += len(neighborhood.row) + len(neighborhood.clm) + len(neighborhood.box)
+				neighborhood.notify(&Restriction{digit: d, row: i, clm: j})
 				continue
 			}
 			wg.Add(1)
@@ -119,20 +121,20 @@ func Solver(puzzle sudoku.Puzzle) sudoku.Puzzle {
 				close(done)
 				return nil
 			}
-			go cellHandler(&puzzle[i][j], i, j, done, recvRestriction, neighborhood, wg)
+			go cellHandler(puzzle[i][j], i, j, done, recvRestriction, neighborhood, wg)
 		}
 	}
 	wg.Wait()
+	fmt.Printf("Concurrent simplification took %f secs\n", time.Since(start).Seconds())
 	close(done)
-	// fmt.Println("After concurrent simplification")
-	puzzle.PrettyPrint()
+	CandidatesRemoved.decrement(candidatesRemovedByClues)
 	if puzzle.IsSolved() {
 		return puzzle
 	}
 	return parallel.Solver(puzzle)
 }
 
-func cellHandler(digits *sudoku.Digits, row, clm int, done <-chan struct{}, recvRestriction <-chan *Restriction, neighborhood *Neighborhood, wg *sync.WaitGroup) {
+func cellHandler(candidates sudoku.Candidates, row, clm int, done <-chan struct{}, recvRestriction <-chan *Restriction, neighborhood *Neighborhood, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
@@ -140,12 +142,13 @@ func cellHandler(digits *sudoku.Digits, row, clm int, done <-chan struct{}, recv
 			return
 		case r := <-recvRestriction:
 			{
+				CandidatesRemoved.increment()
 				if r.digit < 1 || r.digit > 9 {
 					break
 				}
-				digits.Exclude(r.digit)
-				if ok, d := digits.IsSingleton(); ok {
-					neighborhood.notify(&Restriction{digit: d[0], row: row, clm: clm})
+				delete(candidates, r.digit)
+				if ok, d := candidates.IsSingleton(); ok {
+					neighborhood.notify(&Restriction{digit: d, row: row, clm: clm})
 					return
 				}
 			}
@@ -156,6 +159,31 @@ func cellHandler(digits *sudoku.Digits, row, clm int, done <-chan struct{}, recv
 		}
 	}
 }
+
+type Counter struct {
+	sync.Mutex
+	count int
+}
+
+func (c *Counter) increment() {
+	c.Lock()
+	defer c.Unlock()
+	c.count++
+}
+
+func (c *Counter) value() int {
+	c.Lock()
+	defer c.Unlock()
+	return c.count
+}
+
+func (c *Counter) decrement(v int) {
+	c.Lock()
+	defer c.Unlock()
+	c.count -= v
+}
+
+var CandidatesRemoved Counter = Counter{count: 0}
 
 /*
 This technique doesn't give you the result for all sudoku, indeed for some one you just have to try and pray

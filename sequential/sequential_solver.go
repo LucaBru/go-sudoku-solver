@@ -4,22 +4,31 @@ import (
 	"sudoku/sudoku"
 )
 
-func Solver(puzzle sudoku.Puzzle, pos sudoku.Pos) sudoku.Puzzle {
-	if pos.Row == 9 {
-		return puzzle
+func Solver(puzzle sudoku.Puzzle, row, clm int) bool {
+	if clm > 8 {
+		row++
+		clm = 0
 	}
-	if ok, _ := puzzle[pos.Row][pos.Clm].IsSingleton(); ok {
-		return Solver(puzzle, *pos.Next())
+	if row == 9 {
+		return true
 	}
-	_, values := puzzle[pos.Row][pos.Clm].IsSingleton()
-	for _, v := range values {
-		if puzzle.Valid(v, pos) {
-			puzzle[pos.Row][pos.Clm].SetSingleton(v)
-			if sol := Solver(puzzle, *pos.Next()); sol != nil {
-				return sol
+	if len(puzzle[row][clm]) == 1 {
+		return Solver(puzzle, row, clm+1)
+	}
+
+	candidates := map[int]struct{}{}
+	for k := range puzzle[row][clm] {
+		candidates[k] = struct{}{}
+	}
+
+	for d := range candidates {
+		if puzzle.Valid(d, row, clm) {
+			puzzle[row][clm] = map[int]struct{}{d: {}}
+			if Solver(puzzle, row, clm+1) {
+				return true
 			}
 		}
 	}
-	puzzle[pos.Row][pos.Clm] = sudoku.NewDigits()
-	return nil 
+	puzzle[row][clm] = candidates
+	return false
 }
