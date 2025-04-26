@@ -17,7 +17,18 @@ func NewPuzzle(board [][]int) [][]Candidates {
 		row := make([]Candidates, 9)
 		for j := range 9 {
 			if v := board[i][j]; v == 0 {
-				row[j] = map[int]struct{}{1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}, 9: {}}
+				myMpa := map[int]struct{}{
+					1: {},
+					2: {},
+					3: {},
+					4: {},
+					5: {},
+					6: {},
+					7: {},
+					8: {},
+					9: {},
+				}
+				row[j] = myMpa
 			} else {
 				row[j] = map[int]struct{}{v: {}}
 			}
@@ -30,16 +41,20 @@ func NewPuzzle(board [][]int) [][]Candidates {
 type Puzzle [][]Candidates
 
 func (p Puzzle) Display() {
-	for i, row := range p {
-		fmt.Printf("Row %d:\n", i)
-		for j, candidate := range row {
-			fmt.Printf("  Column %d: %v\n", j, candidate)
+	for _, row := range p {
+		for _, candidate := range row {
+			for k := range candidate {
+				fmt.Printf("%v | ", k)
+				break
+			}
 		}
+		fmt.Printf("\n")
 	}
 }
 
 func (p Puzzle) Valid(digit int, row, clm int) bool {
-	return p.satisfyClmConstraint(digit, clm) && p.satisfyRowConstraint(digit, row) && p.satisfyBoxConstraint(digit, row, clm)
+	return p.satisfyClmConstraint(digit, clm) && p.satisfyRowConstraint(digit, row) &&
+		p.satisfyBoxConstraint(digit, row, clm)
 }
 
 func (p Puzzle) DeepCopy() Puzzle {
