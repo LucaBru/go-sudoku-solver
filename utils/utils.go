@@ -38,8 +38,8 @@ func IsEmptyIntersection[K comparable, V any](lhs map[K]V, rhs map[K]V) bool {
 	for elem := range m {
 		_, ok := other[elem]
 		if ok {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }

@@ -1,20 +1,22 @@
 package sudoku
 
-import "fmt"
+import (
+	"fmt"
+)
 
-type Candidates map[int]struct{}
+type Digits map[int]struct{}
 
-func (c Candidates) IsSingleton() (bool, int) {
+func (c Digits) IsSingleton() (bool, int) {
 	for key := range c {
 		return len(c) == 1, key
 	}
 	return false, 0
 }
 
-func NewPuzzle(board [][]int) [][]Candidates {
-	puzzle := make([][]Candidates, 9)
+func NewPuzzle(board [][]int) [][]Digits {
+	puzzle := make([][]Digits, 9)
 	for i := range 9 {
-		row := make([]Candidates, 9)
+		row := make([]Digits, 9)
 		for j := range 9 {
 			if v := board[i][j]; v == 0 {
 				myMpa := map[int]struct{}{
@@ -38,15 +40,31 @@ func NewPuzzle(board [][]int) [][]Candidates {
 	return puzzle
 }
 
-type Puzzle [][]Candidates
+type Puzzle [][]Digits
 
 func (p Puzzle) Display() {
+	fmt.Println("Sudoku")
 	for _, row := range p {
 		for _, candidate := range row {
 			for k := range candidate {
-				fmt.Printf("%v | ", k)
+				fmt.Printf(" %d |", k)
 				break
 			}
+		}
+		fmt.Printf("\n")
+	}
+}
+
+func (p Puzzle) DisplayCandidates() {
+	fmt.Println("Sudoku")
+	for _, row := range p {
+		for _, candidate := range row {
+			row := "["
+			for k := range candidate {
+				row += fmt.Sprintf(" %d", k)
+			}
+			row += " ] | "
+			fmt.Printf("%s", row)
 		}
 		fmt.Printf("\n")
 	}
@@ -58,9 +76,9 @@ func (p Puzzle) Valid(digit int, row, clm int) bool {
 }
 
 func (p Puzzle) DeepCopy() Puzzle {
-	dest := make([][]Candidates, 9)
+	dest := make([][]Digits, 9)
 	for i := range 9 {
-		row := make([]Candidates, 9)
+		row := make([]Digits, 9)
 		copy(row, p[i])
 		dest[i] = row
 	}
@@ -102,6 +120,7 @@ func (p Puzzle) IsSolved() bool {
 	for i := range 9 {
 		for j := range 9 {
 			if len(p[i][j]) != 1 {
+				fmt.Printf("%d %d length %d\n", i, j, len(p[i][j]))
 				return false
 			}
 		}

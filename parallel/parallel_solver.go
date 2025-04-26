@@ -3,6 +3,7 @@ package parallel
 import (
 	"sudoku/sequential"
 	"sudoku/sudoku"
+	"time"
 )
 
 /*
@@ -48,6 +49,10 @@ func Solver(puzzle sudoku.Puzzle) sudoku.Puzzle {
 		subPuzzle[row][clm] = map[int]struct{}{d: {}}
 		go SolveSubPuzzle(subPuzzle, recvSol)
 	}
-	sol := <-recvSol
-	return sol
+	select {
+	case sol := <-recvSol:
+		return sol
+	case <-time.After(5 * time.Second):
+		return nil
+	}
 }

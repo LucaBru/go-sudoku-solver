@@ -2,6 +2,7 @@ package concurrent
 
 import (
 	"fmt"
+	"log"
 	"sudoku/parallel"
 	"sudoku/sudoku"
 )
@@ -30,26 +31,27 @@ func initPrecinctNetwork(puzzle sudoku.Puzzle) {
 	network = m
 }
 
-func Solve(puzzle sudoku.Puzzle) sudoku.Puzzle {
+func Solver(puzzle sudoku.Puzzle) sudoku.Puzzle {
 	initPrecinctNetwork(puzzle)
 	start := make(chan struct{})
 	filteredCandidates := make(chan *FilteredCandidates)
+	defer close(filteredCandidates)
 	detectives := 0
 	for i := range 9 {
 		for j := range 9 {
-			detective := NewCellDetective(i, j, network[Address{row: i, clm: j}], puzzle[i][j])
-			fmt.Printf(
-				"[%d, %d] colleagues:\nbox %v\nrow: %v\nclm %v\n",
-				i,
-				j,
-				detective.boxDetectivesAddresses,
-				detective.rowDetectivesAddresses,
-				detective.clmDetectivesAddresses,
-			)
+			address := Address{row: i, clm: j}
+			detective := NewCellDetective(i, j, network[address])
 			if ok, value := puzzle[i][j].IsSingleton(); ok {
-				detective.notifyColleagues(&Discovery{digit: value, row: i, clm: j})
+				detective.notifyColleagues(&Discovery{digit: value, address: address})
 				continue
 			}
+			log.Printf(
+				"%s colleagues:\nbox %v\nrow: %v\nclm %v\n",
+				address,
+				detective.boxDetectivesAddr,
+				detective.rowDetectivesAddr,
+				detective.clmDetectivesAddr,
+			)
 			go detective.investigate(start, filteredCandidates)
 			detectives++
 		}
@@ -57,17 +59,23 @@ func Solve(puzzle sudoku.Puzzle) sudoku.Puzzle {
 	close(start)
 	for range detectives {
 		filtered := <-filteredCandidates
+		log.Println(filtered)
 		puzzle[filtered.row][filtered.clm] = filtered.candidates
 	}
-	close(filteredCandidates)
 	if puzzle.IsSolved() {
 		return puzzle
 	}
+	fmt.Println("Simplified version of the initial puzzle")
+	puzzle.DisplayCandidates()
 	return parallel.Solver(puzzle)
 }
 
 type FilteredCandidates struct {
-	candidates sudoku.Candidates
+	candidates sudoku.Digits
 	row        int
 	clm        int
+}
+
+func (f *FilteredCandidates) String() string {
+	return fmt.Sprintf("%s filtered candidates %v\n", Address{row: f.row, clm: f.clm}, f.candidates)
 }
