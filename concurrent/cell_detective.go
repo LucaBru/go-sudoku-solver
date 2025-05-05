@@ -116,6 +116,7 @@ func (d *CellDetective) onDiscover(discovery *Discovery) int {
 	}
 	for digit, suspects := range d.digitsSuspects {
 		delete(suspects, discovery.address)
+		// no, have to use is guilty
 		if len(suspects) == 0 {
 			log.Printf("%s = %d\n", d.address, digit)
 			return digit
